@@ -1,0 +1,70 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: immich_redis
+    restart: unless-stopped
+
+  database:
+    image: tensorchord/pgvecto-rs:pg14-v0.2.0
+    container_name: immich_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_DB: ${DB_DATABASE_NAME}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
+    container_name: immich_server
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - database
+    env_file:
+      - stack.env
+    ports:
+      - "2283:2283"
+    volumes:
+      - ${UPLOAD_LOCATION}:/data:Z
+      # Per-user NAS mounts (read-only)
+      - /var/mnt/nas-raid/Community/Evan/Photos:/mnt/external/Evan:Z
+      - /var/mnt/nas-raid/Community/Jenna/Photos:/mnt/external/Jenna:Z
+      - /var/mnt/nas-raid/Community/Ian/Photos:/mnt/external/Ian:Z
+      - /var/mnt/nas-raid/Community/Sawyer/Photos:/mnt/external/Sawyer:Z
+      - /var/mnt/nas-raid/Community/Jake/Photos:/mnt/external/Jake:Z
+      - /var/mnt/nas-raid/Community/Ryan/Photos:/mnt/external/Ryan:Z
+
+  immich-microservices:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
+    container_name: immich_microservices
+    restart: unless-stopped
+    depends_on:
+      - redis
+      - database
+    env_file:
+      - stack.env
+    command: ["start.sh", "microservices"]
+    volumes:
+      - ${UPLOAD_LOCATION}:/data:Z
+      # Must match immich-server mounts exactly
+      - /var/mnt/nas-raid/Community/Evan/Photos:/mnt/external/Evan:Z
+      - /var/mnt/nas-raid/Community/Jenna/Photos:/mnt/external/Jenna:Z
+      - /var/mnt/nas-raid/Community/Ian/Photos:/mnt/external/Ian:Z
+      - /var/mnt/nas-raid/Community/Sawyer/Photos:/mnt/external/Sawyer:Z
+      - /var/mnt/nas-raid/Community/Jake/Photos:/mnt/external/Jake:Z
+      - /var/mnt/nas-raid/Community/Ryan/Photos:/mnt/external/Ryan:Z
+
+  immich-machine-learning:
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
+    container_name: immich_machine_learning
+    restart: unless-stopped
+    env_file:
+      - stack.env
+    volumes:
+      - model-cache:/cache
+
+volumes:
+  pgdata:
+  model-cache:
