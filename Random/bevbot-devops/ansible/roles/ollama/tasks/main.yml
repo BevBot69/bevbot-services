@@ -1,0 +1,41 @@
+---
+# ansible/roles/ollama/tasks/main.yml
+# Ollama LLM server — deployed ad-hoc (tag: ollama).
+# Uses NVIDIA GPU via CDI when available.
+# Run: ansible-playbook playbooks/bevbot2.yml --tags ollama
+
+- name: Create Ollama config directory
+  ansible.builtin.file:
+    path: "{{ ollama_config_dir }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  tags: ollama
+
+- name: Deploy Ollama Quadlet container unit
+  ansible.builtin.template:
+    src: ollama.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/ollama.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload and restart ollama
+  tags: ollama
+
+- name: Open Ollama port (Tailscale-facing only — not on public interface)
+  ansible.posix.firewalld:
+    port: "{{ ollama_port }}/tcp"
+    zone: trusted
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: ollama
+
+- name: Print Ollama access info
+  ansible.builtin.debug:
+    msg: |
+      Ollama deployed. Access via Tailscale:
+        http://{{ inventory_hostname }}:{{ ollama_port }}
+      Pull a model: podman exec -it ollama ollama pull llama3.2
+  tags: ollama

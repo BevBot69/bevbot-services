@@ -1,0 +1,10 @@
+# ansible/roles/base/templates/fail2ban_sshd.conf.j2
+[sshd]
+enabled  = true
+port     = {{ ssh_port }}
+filter   = sshd
+logpath  = /var/log/auth.log
+           /var/log/secure
+maxretry = 5
+bantime  = 3600
+findtime = 600

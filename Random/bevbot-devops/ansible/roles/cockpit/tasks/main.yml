@@ -1,0 +1,28 @@
+---
+# ansible/roles/cockpit/tasks/main.yml
+
+- name: Install Cockpit and useful extensions
+  ansible.builtin.package:
+    name:
+      - cockpit
+      - cockpit-podman        # Manage Podman containers from Cockpit
+      - cockpit-networkmanager
+      - cockpit-storaged       # Storage / disk management
+      - cockpit-packagekit
+    state: present
+  tags: cockpit
+
+- name: Enable and start Cockpit socket
+  ansible.builtin.systemd:
+    name: cockpit.socket
+    enabled: true
+    state: started
+  tags: cockpit
+
+- name: Allow Cockpit through firewall
+  ansible.posix.firewalld:
+    service: cockpit
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: cockpit

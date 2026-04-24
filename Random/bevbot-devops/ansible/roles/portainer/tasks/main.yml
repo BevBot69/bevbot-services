@@ -1,0 +1,56 @@
+---
+# ansible/roles/portainer/tasks/main.yml
+# Deploys Portainer CE as a rootless Podman container with a systemd unit.
+
+- name: Create Portainer data directory
+  ansible.builtin.file:
+    path: "{{ portainer_data_dir }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  tags: portainer
+
+- name: Pull Portainer CE image
+  containers.podman.podman_image:
+    name: "docker.io/portainer/portainer-ce:{{ portainer_version }}"
+    state: present
+  become: true
+  become_user: "{{ podman_user }}"
+  tags: portainer
+
+- name: Deploy Portainer systemd unit
+  ansible.builtin.template:
+    src: portainer.service.j2
+    dest: "/home/{{ podman_user }}/.config/systemd/user/portainer.service"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload and restart portainer
+  tags: portainer
+
+- name: Enable Portainer service at user login
+  ansible.builtin.systemd:
+    name: portainer.service
+    enabled: true
+    scope: user
+    daemon_reload: true
+  become: true
+  become_user: "{{ podman_user }}"
+  tags: portainer
+
+- name: Allow Portainer port through firewall (LAN + Tailscale only)
+  ansible.posix.firewalld:
+    port: "9443/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: portainer
+
+- name: Allow Portainer HTTP port (redirect only)
+  ansible.posix.firewalld:
+    port: "8000/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: portainer

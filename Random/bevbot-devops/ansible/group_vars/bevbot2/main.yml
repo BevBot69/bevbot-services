@@ -1,0 +1,48 @@
+---
+# ansible/group_vars/bevbot2/main.yml
+# Variables specific to Bevbot 2.0 (Compute/Media)
+
+# ── Jellyfin ──────────────────────────────────────────────────────────────────
+jellyfin_config_dir: "{{ container_config_base }}/jellyfin"
+jellyfin_cache_dir: "{{ container_data_base }}/jellyfin/cache"
+jellyfin_port: 8096
+jellyfin_https_port: 8920
+
+# SMB mount for Jellyfin media — mounts bevbot1's RAID share
+jellyfin_media_mount: "/mnt/bevbot_media"
+smb_server: "192.168.1.10"      # ← set to Bevbot 1.0 LAN IP (or Tailscale IP)
+smb_share: "nasraid"
+smb_username: "{{ vault_smb_username }}"
+smb_password: "{{ vault_smb_password }}"
+
+# ── NVIDIA ────────────────────────────────────────────────────────────────────
+nvidia_driver_version: "570"    # Current stable for Blackwell; verify before run
+enable_nvidia_containers: true
+
+# ── Ollama ────────────────────────────────────────────────────────────────────
+# Ollama is deployed ad-hoc — run the ollama tag when you want it
+ollama_version: "latest"
+ollama_config_dir: "{{ container_config_base }}/ollama"
+ollama_port: 11434
+ollama_gpu_enabled: true        # Set false to run CPU-only
+
+# ── Game Servers ──────────────────────────────────────────────────────────────
+game_servers_config_base: "{{ container_config_base }}/gameservers"
+game_servers_data_base:   "{{ container_data_base }}/gameservers"
+
+# Minecraft Java Edition
+minecraft_enabled: true
+minecraft_version: "latest"
+minecraft_port: 25565
+minecraft_eula: "TRUE"
+minecraft_memory: "4G"
+minecraft_rcon_password: "{{ vault_minecraft_rcon_password }}"
+
+# The Forest (Dedicated Server via Wine/Proton — requires you to provide server binary)
+forest_enabled: false    # Set true after placing server files in data dir
+forest_port: 27016
+forest_query_port: 27017
+
+# Starbound
+starbound_enabled: false  # Set true after placing server binary
+starbound_port: 21025

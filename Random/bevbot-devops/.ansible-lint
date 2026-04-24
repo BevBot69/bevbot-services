@@ -1,0 +1,17 @@
+# .ansible-lint
+---
+profile: production
+
+exclude_paths:
+  - .github/
+  - docs/
+  - scripts/
+
+skip_list:
+  - yaml[line-length]     # Long lines acceptable in templates
+  - name[casing]          # We use sentence case in task names
+
+warn_list:
+  - experimental
+
+use_default_rules: true

@@ -1,0 +1,32 @@
+# ansible/roles/game_servers/templates/starbound.container.j2
+# Podman Quadlet — Starbound Dedicated Server
+# Requires: copy your Starbound Linux server files to {{ game_servers_data_base }}/starbound/
+# Managed by Ansible
+
+[Unit]
+Description=Starbound Dedicated Server
+After=network-online.target
+
+[Container]
+Image=docker.io/library/debian:stable-slim
+ContainerName=starbound
+Network=bevbot_net
+
+Volume={{ game_servers_data_base }}/starbound:/starbound:z
+Volume=/etc/localtime:/etc/localtime:ro
+
+PublishPort={{ starbound_port }}:21025
+
+Environment=TZ=America/Denver
+
+# Entrypoint runs the Linux dedicated server binary
+Entrypoint=/starbound/linux/starbound_server
+
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target

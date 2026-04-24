@@ -1,0 +1,38 @@
+---
+# ansible/group_vars/all/main.yml
+# Variables shared across ALL hosts.
+
+# ── Tailscale ─────────────────────────────────────────────────────────────────
+tailscale_authkey: "{{ vault_tailscale_authkey }}"
+# Your Tailnet name — used for MagicDNS references
+tailscale_tailnet: "your-tailnet.ts.net"
+
+# ── SSH Hardening ─────────────────────────────────────────────────────────────
+# SSH port — 22 is fine if Tailscale ACLs are your primary gatekeeping,
+# but change to something non-standard if you want belt-and-suspenders.
+ssh_port: 22
+
+# Allowed SSH users — your primary user only. Root login is always disabled.
+ssh_allowed_users:
+  - "{{ ansible_user }}"
+
+# Public keys to authorize. Add your laptop, desktop, phone keys here.
+# The private keys stay on your devices — never in this repo.
+authorized_keys:
+  - "ssh-ed25519 AAAA... your-laptop"
+  - "ssh-ed25519 AAAA... your-desktop"
+  - "ssh-ed25519 AAAA... your-phone"
+
+# ── Podman ────────────────────────────────────────────────────────────────────
+podman_user: "{{ ansible_user }}"   # User that owns rootless containers
+
+# ── Portainer ─────────────────────────────────────────────────────────────────
+portainer_version: "2.22.1"
+portainer_data_dir: "/home/{{ podman_user }}/.local/share/portainer"
+
+# ── Cockpit ───────────────────────────────────────────────────────────────────
+cockpit_port: 9090
+
+# ── Common directories ────────────────────────────────────────────────────────
+container_config_base: "/home/{{ podman_user }}/.config/containers"
+container_data_base:   "/home/{{ podman_user }}/.local/share"

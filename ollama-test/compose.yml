@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama_test
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui-test
+    ports:
+      - "3000:8080"
+    volumes:
+      - open-webui_data:/app/backend/data
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+    depends_on:
+      - ollama
+    restart: unless-stopped
+  search-service:
+    image: python:3.9-slim
+    container_name: search-service-test
+    build: .
+    volumes:
+      - .env:/app/.env
+      - ./search_module.py:/app/search_module.py
+    environment:
+      - SERPAPI_API_KEY=${SERPAPI_API_KEY}
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  open-webui_data:

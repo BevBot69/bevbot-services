@@ -1,0 +1,10 @@
+---
+# ansible/roles/smb_client/handlers/main.yml
+- name: Reload systemd and remount
+  ansible.builtin.systemd:
+    daemon_reload: true
+  notify: Mount SMB share
+
+- name: Mount SMB share
+  ansible.builtin.command: mount -a
+  changed_when: false

@@ -1,0 +1,43 @@
+# ansible/roles/game_servers/templates/minecraft.container.j2
+# Podman Quadlet — Minecraft Java Edition Dedicated Server
+# Uses itzg/minecraft-server which auto-downloads and manages server.jar
+# Managed by Ansible
+
+[Unit]
+Description=Minecraft Java Dedicated Server
+After=network-online.target
+
+[Container]
+Image=docker.io/itzg/minecraft-server:latest
+ContainerName=minecraft
+Network=bevbot_net
+
+# Server data persisted to local disk
+Volume={{ game_servers_data_base }}/minecraft:/data:z
+
+# Server configuration via environment
+Environment=EULA={{ minecraft_eula }}
+Environment=VERSION={{ minecraft_version }}
+Environment=MEMORY={{ minecraft_memory }}
+Environment=TYPE=VANILLA
+Environment=DIFFICULTY=normal
+Environment=ONLINE_MODE=true
+Environment=ENABLE_RCON=true
+Environment=RCON_PASSWORD={{ minecraft_rcon_password }}
+Environment=RCON_PORT=25575
+Environment=TZ=America/Denver
+
+PublishPort={{ minecraft_port }}:25565
+PublishPort=25575:25575
+
+NoNewPrivileges=true
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=always
+RestartSec=30
+# Give Minecraft time to gracefully save world on stop
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target

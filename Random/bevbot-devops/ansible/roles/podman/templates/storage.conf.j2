@@ -1,0 +1,9 @@
+# ansible/roles/podman/templates/storage.conf.j2
+# Podman storage configuration for rootless containers
+[storage]
+driver = "overlay"
+runroot = "/run/user/{{ podman_user_info.ansible_facts.getent_passwd[podman_user][1] }}/containers"
+graphroot = "/home/{{ podman_user }}/.local/share/containers/storage"
+
+[storage.options.overlay]
+mount_program = "/usr/bin/fuse-overlayfs"

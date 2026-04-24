@@ -1,0 +1,33 @@
+# ansible/roles/immich/templates/immich-server.container.j2
+# Podman Quadlet — Immich Server
+# Managed by Ansible
+
+[Unit]
+Description=Immich Server
+After=immich-db.service immich-redis.service
+Requires=immich-db.service immich-redis.service
+
+[Container]
+Image=ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
+Pod=immich.pod
+ContainerName=immich-server
+
+EnvironmentFile={{ immich_config_dir }}/immich.env
+
+Volume={{ immich_data_dir }}/library:/usr/src/app/upload/library:z
+Volume={{ immich_data_dir }}/upload:/usr/src/app/upload/upload:z
+Volume={{ immich_data_dir }}/thumbs:/usr/src/app/upload/thumbs:z
+Volume={{ immich_data_dir }}/profile:/usr/src/app/upload/profile:z
+Volume={{ immich_data_dir }}/encoded-video:/usr/src/app/upload/encoded-video:z
+Volume=/etc/localtime:/etc/localtime:ro
+
+PublishPort={{ immich_port }}:3001
+
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

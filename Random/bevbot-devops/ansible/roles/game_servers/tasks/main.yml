@@ -1,0 +1,114 @@
+---
+# ansible/roles/game_servers/tasks/main.yml
+# Deploys Minecraft Java, The Forest, and Starbound dedicated servers
+# via rootless Podman Quadlets on Bevbot 2.0.
+
+- name: Create game server directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  loop:
+    - "{{ game_servers_config_base }}"
+    - "{{ game_servers_data_base }}/minecraft"
+    - "{{ game_servers_data_base }}/forest"
+    - "{{ game_servers_data_base }}/starbound"
+  tags: game_servers
+
+# ── Minecraft Java ────────────────────────────────────────────────────────────
+- name: Deploy Minecraft server Quadlet
+  ansible.builtin.template:
+    src: minecraft.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/minecraft.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  when: minecraft_enabled
+  notify: Reload game services
+  tags: [game_servers, minecraft]
+
+- name: Open Minecraft port in firewall
+  ansible.posix.firewalld:
+    port: "{{ minecraft_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: minecraft_enabled
+  tags: [game_servers, minecraft]
+
+- name: Open Minecraft RCON port (LAN/Tailscale only)
+  ansible.posix.firewalld:
+    port: "25575/tcp"
+    zone: trusted
+    permanent: true
+    state: enabled
+    immediate: true
+  when: minecraft_enabled
+  tags: [game_servers, minecraft]
+
+# ── The Forest ────────────────────────────────────────────────────────────────
+- name: Deploy The Forest server Quadlet
+  ansible.builtin.template:
+    src: forest.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/forest.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  when: forest_enabled
+  notify: Reload game services
+  tags: [game_servers, forest]
+
+- name: Open The Forest ports in firewall
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "{{ forest_port }}/udp"
+    - "{{ forest_query_port }}/udp"
+  when: forest_enabled
+  tags: [game_servers, forest]
+
+# ── Starbound ─────────────────────────────────────────────────────────────────
+- name: Deploy Starbound server Quadlet
+  ansible.builtin.template:
+    src: starbound.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/starbound.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  when: starbound_enabled
+  notify: Reload game services
+  tags: [game_servers, starbound]
+
+- name: Open Starbound port in firewall
+  ansible.posix.firewalld:
+    port: "{{ starbound_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: starbound_enabled
+  tags: [game_servers, starbound]
+
+- name: Print game server notes
+  ansible.builtin.debug:
+    msg: |
+      Game Server Notes:
+      ─────────────────
+      Minecraft: Enabled={{ minecraft_enabled }}, Port={{ minecraft_port }}
+        Image auto-manages server.jar. Set version in group_vars.
+
+      The Forest: Enabled={{ forest_enabled }}
+        IMPORTANT: You must provide the dedicated server binary.
+        Place files in: {{ game_servers_data_base }}/forest/
+        The container uses Wine to run the Windows binary.
+        Set forest_enabled=true in group_vars/bevbot2/main.yml when ready.
+
+      Starbound: Enabled={{ starbound_enabled }}
+        IMPORTANT: Requires your Steam copy of Starbound.
+        Place server files in: {{ game_servers_data_base }}/starbound/
+        Set starbound_enabled=true in group_vars/bevbot2/main.yml when ready.
+  tags: game_servers

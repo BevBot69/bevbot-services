@@ -1,0 +1,23 @@
+# ansible/roles/immich/templates/immich-db.container.j2
+# Podman Quadlet — Immich Postgres
+[Unit]
+Description=Immich Database (Postgres)
+
+[Container]
+Image=docker.io/tensorchord/pgvecto-rs:pg14-v0.2.0
+Pod=immich.pod
+ContainerName=immich-db
+
+EnvironmentFile={{ immich_config_dir }}/immich.env
+Environment=POSTGRES_USER=immich
+Environment=POSTGRES_DB=immich
+Environment=POSTGRES_PASSWORD={{ immich_db_password }}
+
+Volume={{ immich_config_dir }}/pgdata:/var/lib/postgresql/data:z
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

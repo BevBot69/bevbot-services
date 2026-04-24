@@ -1,0 +1,116 @@
+---
+# ansible/roles/podman/tasks/main.yml
+
+- name: Install Podman and related tools
+  ansible.builtin.package:
+    name:
+      - podman
+      - podman-compose
+      - buildah
+      - skopeo
+      - aardvark-dns       # DNS for Podman networks (replaces dnsmasq)
+    state: present
+  tags: podman
+
+- name: Ensure Docker socket shim is disabled/removed (move away from Docker)
+  ansible.builtin.systemd:
+    name: docker
+    enabled: false
+    state: stopped
+  failed_when: false  # OK if Docker isn't installed
+  tags: [podman, docker]
+
+- name: Remove docker package if present
+  ansible.builtin.package:
+    name:
+      - docker
+      - docker-ce
+      - docker-engine
+      - docker.io
+      - containerd
+    state: absent
+  failed_when: false
+  tags: [podman, docker]
+
+# ── Rootless Podman Setup ─────────────────────────────────────────────────────
+- name: Ensure subuid/subgid ranges for rootless Podman
+  ansible.builtin.lineinfile:
+    path: "{{ item.file }}"
+    line: "{{ podman_user }}:100000:65536"
+    regexp: "^{{ podman_user }}:"
+    state: present
+  loop:
+    - { file: /etc/subuid }
+    - { file: /etc/subgid }
+  tags: podman
+
+- name: Create Podman config directories for user
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  loop:
+    - "/home/{{ podman_user }}/.config/containers"
+    - "/home/{{ podman_user }}/.config/systemd/user"
+    - "/home/{{ podman_user }}/.local/share/containers"
+  tags: podman
+
+- name: Deploy Podman registries configuration
+  ansible.builtin.template:
+    src: registries.conf.j2
+    dest: "/home/{{ podman_user }}/.config/containers/registries.conf"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  tags: podman
+
+- name: Deploy Podman storage configuration
+  ansible.builtin.template:
+    src: storage.conf.j2
+    dest: "/home/{{ podman_user }}/.config/containers/storage.conf"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  tags: podman
+
+# ── Docker socket compatibility for Portainer ─────────────────────────────────
+# Portainer expects a Docker-compatible socket — Podman provides one
+- name: Enable Podman socket service (Docker API compatibility)
+  ansible.builtin.systemd:
+    name: podman.socket
+    enabled: true
+    state: started
+    scope: user
+  become: true
+  become_user: "{{ podman_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "/run/user/{{ (ansible_facts.getent_passwd[podman_user] | default(['', '', '1000']))[2] }}"
+  tags: podman
+
+- name: Get user UID for XDG_RUNTIME_DIR
+  ansible.builtin.getent:
+    database: passwd
+    key: "{{ podman_user }}"
+  register: podman_user_info
+  tags: podman
+
+- name: Create Docker socket symlink (for Portainer compatibility)
+  ansible.builtin.file:
+    src: "/run/user/{{ podman_user_info.ansible_facts.getent_passwd[podman_user][1] }}/podman/podman.sock"
+    dest: "/run/user/{{ podman_user_info.ansible_facts.getent_passwd[podman_user][1] }}/docker.sock"
+    state: link
+    force: true
+  failed_when: false  # Socket may not exist until first use
+  tags: podman
+
+- name: Create shared Podman network (bevbot_net)
+  containers.podman.podman_network:
+    name: bevbot_net
+    driver: bridge
+    subnet: "10.89.0.0/24"
+    state: present
+  become: true
+  become_user: "{{ podman_user }}"
+  tags: [podman, network]

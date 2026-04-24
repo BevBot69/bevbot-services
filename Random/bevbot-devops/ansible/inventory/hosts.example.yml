@@ -1,0 +1,24 @@
+---
+# ansible/inventory/hosts.example.yml
+# Copy this to hosts.yml and fill in your actual values.
+# Do NOT commit hosts.yml — it is in .gitignore.
+
+all:
+  children:
+    bevbot:
+      hosts:
+        bevbot1:
+          ansible_host: 192.168.1.10        # LAN IP of Bevbot 1.0
+          # ansible_host: 100.x.x.x         # Or use Tailscale IP / MagicDNS name
+          ansible_user: your_username
+          ansible_ssh_private_key_file: ~/.ssh/bevbot_ed25519
+
+    bevbot2_group:
+      hosts:
+        bevbot2:
+          ansible_host: 192.168.1.11        # LAN IP of Bevbot 2.0
+          ansible_user: your_username
+          ansible_ssh_private_key_file: ~/.ssh/bevbot_ed25519
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3

@@ -1,0 +1,66 @@
+---
+# ansible/playbooks/bevbot2.yml
+# Services specific to Bevbot 2.0 (Dell Laptop — Compute / Media)
+#
+# Usage:
+#   Full deploy:          ansible-playbook playbooks/bevbot2.yml --ask-vault-pass
+#   Jellyfin only:        ansible-playbook playbooks/bevbot2.yml --tags jellyfin --ask-vault-pass
+#   Game servers only:    ansible-playbook playbooks/bevbot2.yml --tags game_servers --ask-vault-pass
+#   Ollama (ad-hoc):      ansible-playbook playbooks/bevbot2.yml --tags ollama --ask-vault-pass
+#   NVIDIA drivers:       ansible-playbook playbooks/bevbot2.yml --tags nvidia --ask-vault-pass
+
+- name: Configure Bevbot 2.0 — Compute and Media Services
+  hosts: bevbot2_group
+  become: true
+  gather_facts: true
+
+  roles:
+    # NVIDIA must come before anything that uses GPU (Jellyfin, Ollama)
+    - role: nvidia
+      tags: nvidia
+      when: enable_nvidia_containers | default(false)
+
+    # Mount Bevbot 1.0 NAS share before Jellyfin starts
+    - role: smb_client
+      tags: [smb, jellyfin]
+
+    - role: jellyfin
+      tags: jellyfin
+
+    - role: game_servers
+      tags: game_servers
+
+    # Ollama is ad-hoc — only runs when --tags ollama is specified
+    - role: ollama
+      tags: ollama
+
+  post_tasks:
+    - name: Print Bevbot 2.0 service summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════
+          Bevbot 2.0 — Deployment Complete
+          ════════════════════════════════════════
+          Cockpit:   https://{{ ansible_host }}:9090
+          Portainer: https://{{ ansible_host }}:9443
+          Jellyfin:  http://{{ ansible_host }}:{{ jellyfin_port }}
+          Ollama:    http://{{ ansible_host }}:{{ ollama_port }} (if deployed)
+
+          Media SMB mount: {{ jellyfin_media_mount }}
+            (→ //{{ smb_server }}/{{ smb_share }})
+
+          Tailscale SSH: ssh {{ ansible_user }}@{{ inventory_hostname }}
+          Standard SSH:  ssh -i ~/.ssh/bevbot_ed25519 {{ ansible_user }}@{{ ansible_host }}
+
+          Game Servers:
+            Minecraft:  :{{ minecraft_port }} (enabled={{ minecraft_enabled }})
+            The Forest: :{{ forest_port }}   (enabled={{ forest_enabled }})
+            Starbound:  :{{ starbound_port }} (enabled={{ starbound_enabled }})
+
+          Next Steps:
+            1. Open Portainer and set admin password
+            2. Open Jellyfin — point libraries at /media (your NAS)
+            3. If NVIDIA was freshly installed, REBOOT before using GPU transcoding
+            4. For The Forest / Starbound: see docs/game-servers.md
+          ════════════════════════════════════════
+      tags: always

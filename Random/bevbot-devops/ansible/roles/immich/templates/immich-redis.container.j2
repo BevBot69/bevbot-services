@@ -1,0 +1,15 @@
+# ansible/roles/immich/templates/immich-redis.container.j2
+[Unit]
+Description=Immich Redis Cache
+
+[Container]
+Image=docker.io/redis:6.2-alpine
+Pod=immich.pod
+ContainerName=immich-redis
+
+[Service]
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

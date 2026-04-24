@@ -1,0 +1,129 @@
+---
+# ansible/roles/base/tasks/main.yml
+# OS hardening, firewall, auto-updates, and system prep for uCore.
+
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  tags: base
+
+- name: Ensure essential packages are present
+  ansible.builtin.package:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - htop
+      - jq
+      - unzip
+      - cifs-utils          # SMB mount support
+      - nfs-utils
+      - firewalld
+      - fail2ban
+      - chrony              # NTP
+    state: present
+  tags: base
+
+# ── NTP / Time Sync ───────────────────────────────────────────────────────────
+- name: Enable and start chronyd
+  ansible.builtin.systemd:
+    name: chronyd
+    enabled: true
+    state: started
+  tags: base
+
+# ── Firewall ──────────────────────────────────────────────────────────────────
+- name: Enable firewalld
+  ansible.builtin.systemd:
+    name: firewalld
+    enabled: true
+    state: started
+  tags: [base, firewall]
+
+- name: Set default zone to drop (deny all incoming by default)
+  ansible.builtin.command: firewall-cmd --set-default-zone=drop
+  changed_when: false
+  tags: [base, firewall]
+
+- name: Allow SSH through firewall
+  ansible.posix.firewalld:
+    port: "{{ ssh_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: [base, firewall]
+
+- name: Allow Cockpit through firewall
+  ansible.posix.firewalld:
+    service: cockpit
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: [base, firewall]
+
+- name: Allow Tailscale interface (tailscale0)
+  ansible.posix.firewalld:
+    zone: trusted
+    interface: tailscale0
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: [base, firewall]
+
+# ── Fail2ban ─────────────────────────────────────────────────────────────────
+- name: Deploy fail2ban SSH jail config
+  ansible.builtin.template:
+    src: fail2ban_sshd.conf.j2
+    dest: /etc/fail2ban/jail.d/sshd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fail2ban
+  tags: [base, fail2ban]
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+  tags: [base, fail2ban]
+
+# ── Automatic Security Updates ────────────────────────────────────────────────
+# uCore uses rpm-ostree / bootc — auto-updates via the system upgrade service
+- name: Enable rpm-ostree automatic updates (uCore)
+  ansible.builtin.systemd:
+    name: rpm-ostreed-automatic.timer
+    enabled: true
+    state: started
+  ignore_errors: true   # Not all uCore variants have this timer
+  tags: [base, updates]
+
+# ── Kernel Hardening (sysctl) ─────────────────────────────────────────────────
+- name: Apply sysctl hardening parameters
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_set: true
+    state: present
+    reload: true
+  loop:
+    - { name: "net.ipv4.conf.all.rp_filter",          value: "1" }
+    - { name: "net.ipv4.conf.default.rp_filter",      value: "1" }
+    - { name: "net.ipv4.conf.all.accept_redirects",   value: "0" }
+    - { name: "net.ipv4.conf.all.send_redirects",     value: "0" }
+    - { name: "net.ipv4.conf.all.accept_source_route",value: "0" }
+    - { name: "net.ipv4.icmp_echo_ignore_broadcasts", value: "1" }
+    - { name: "net.ipv6.conf.all.accept_redirects",   value: "0" }
+    - { name: "kernel.dmesg_restrict",                value: "1" }
+    - { name: "kernel.kptr_restrict",                 value: "2" }
+    - { name: "net.core.bpf_jit_harden",              value: "2" }
+  tags: [base, sysctl]
+
+# ── Lingering for rootless Podman ─────────────────────────────────────────────
+# Allows user systemd units (containers) to run without an active login session
+- name: Enable systemd linger for podman user
+  ansible.builtin.command: loginctl enable-linger {{ podman_user }}
+  args:
+    creates: /var/lib/systemd/linger/{{ podman_user }}
+  tags: [base, podman]

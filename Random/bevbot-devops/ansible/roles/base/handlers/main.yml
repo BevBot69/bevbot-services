@@ -1,0 +1,6 @@
+---
+# ansible/roles/base/handlers/main.yml
+- name: Restart fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    state: restarted

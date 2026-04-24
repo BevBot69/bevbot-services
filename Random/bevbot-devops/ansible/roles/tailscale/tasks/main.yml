@@ -1,0 +1,60 @@
+---
+# ansible/roles/tailscale/tasks/main.yml
+
+- name: Install Tailscale via official install script
+  ansible.builtin.shell: |
+    curl -fsSL https://tailscale.com/install.sh | sh
+  args:
+    creates: /usr/bin/tailscale
+  tags: tailscale
+
+- name: Enable and start tailscaled
+  ansible.builtin.systemd:
+    name: tailscaled
+    enabled: true
+    state: started
+  tags: tailscale
+
+- name: Check Tailscale current status
+  ansible.builtin.command: tailscale status --json
+  register: ts_status_raw
+  changed_when: false
+  failed_when: false
+  tags: tailscale
+
+- name: Parse Tailscale status
+  ansible.builtin.set_fact:
+    ts_status: "{{ ts_status_raw.stdout | from_json }}"
+  when: ts_status_raw.rc == 0 and ts_status_raw.stdout != ''
+  tags: tailscale
+
+- name: Authenticate to Tailscale (if not already connected)
+  ansible.builtin.command: >
+    tailscale up
+    --authkey={{ tailscale_authkey }}
+    --hostname={{ inventory_hostname }}
+    --ssh
+    --accept-routes
+    --accept-dns
+  when: >
+    ts_status is not defined or
+    ts_status.BackendState is not defined or
+    ts_status.BackendState != 'Running'
+  no_log: true    # Don't log the auth key
+  tags: tailscale
+
+- name: Enable Tailscale SSH on this node
+  ansible.builtin.command: tailscale set --ssh
+  changed_when: false
+  tags: tailscale
+
+- name: Show Tailscale IP
+  ansible.builtin.command: tailscale ip -4
+  register: ts_ip
+  changed_when: false
+  tags: tailscale
+
+- name: Print Tailscale IP
+  ansible.builtin.debug:
+    msg: "Tailscale IP for {{ inventory_hostname }}: {{ ts_ip.stdout }}"
+  tags: tailscale

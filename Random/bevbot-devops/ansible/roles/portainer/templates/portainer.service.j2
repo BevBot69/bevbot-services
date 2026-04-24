@@ -1,0 +1,32 @@
+# ansible/roles/portainer/templates/portainer.service.j2
+# Portainer CE — rootless Podman systemd unit
+# Managed by Ansible — do not edit manually.
+
+[Unit]
+Description=Portainer CE Container Management
+After=network-online.target podman.socket.service
+Wants=network-online.target
+Requires=podman.socket.service
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+
+ExecStartPre=-/usr/bin/podman rm -f portainer
+ExecStart=/usr/bin/podman run \
+  --name=portainer \
+  --rm \
+  --network=bevbot_net \
+  -p 8000:8000 \
+  -p 9443:9443 \
+  -v /run/user/%U/podman/podman.sock:/var/run/docker.sock:ro,z \
+  -v {{ portainer_data_dir }}:/data:z \
+  --label "io.containers.autoupdate=image" \
+  docker.io/portainer/portainer-ce:{{ portainer_version }} \
+  --admin-password-file /data/.admin_password
+
+ExecStop=/usr/bin/podman stop portainer
+
+[Install]
+WantedBy=default.target

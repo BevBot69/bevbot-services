@@ -1,0 +1,37 @@
+# ansible/roles/ollama/templates/ollama.container.j2
+# Podman Quadlet — Ollama LLM Server (ad-hoc deployment)
+# Managed by Ansible
+
+[Unit]
+Description=Ollama LLM Server
+After=network-online.target
+
+[Container]
+Image=docker.io/ollama/ollama:{{ ollama_version }}
+ContainerName=ollama
+Network=bevbot_net
+
+Volume={{ ollama_config_dir }}:/root/.ollama:z
+Volume=/etc/localtime:/etc/localtime:ro
+
+PublishPort={{ ollama_port }}:11434
+
+{% if ollama_gpu_enabled %}
+# NVIDIA GPU via CDI
+AddDevice=nvidia.com/gpu=all
+Environment=NVIDIA_VISIBLE_DEVICES=all
+Environment=OLLAMA_GPU_OVERHEAD=512MiB
+{% endif %}
+
+# Only expose on Tailscale — bind to all interfaces but firewall restricts to trusted zone
+Environment=OLLAMA_HOST=0.0.0.0
+
+NoNewPrivileges=true
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target

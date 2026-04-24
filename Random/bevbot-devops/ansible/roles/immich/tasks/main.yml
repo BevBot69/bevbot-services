@@ -1,0 +1,88 @@
+---
+# ansible/roles/immich/tasks/main.yml
+# Deploys Immich as rootless Podman containers (server, redis, postgres, ml).
+
+- name: Create Immich config and data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  loop:
+    - "{{ immich_config_dir }}"
+    - "{{ immich_data_dir }}"
+    - "{{ immich_data_dir }}/library"
+    - "{{ immich_data_dir }}/upload"
+    - "{{ immich_data_dir }}/thumbs"
+    - "{{ immich_data_dir }}/profile"
+    - "{{ immich_data_dir }}/encoded-video"
+  tags: immich
+
+- name: Deploy Immich pod definition (Quadlet)
+  ansible.builtin.template:
+    src: immich.pod.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/immich.pod"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload immich
+  tags: immich
+
+- name: Deploy Immich server Quadlet unit
+  ansible.builtin.template:
+    src: immich-server.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/immich-server.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload immich
+  tags: immich
+
+- name: Deploy Immich machine learning Quadlet unit
+  ansible.builtin.template:
+    src: immich-ml.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/immich-ml.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload immich
+  tags: immich
+
+- name: Deploy Immich Redis Quadlet unit
+  ansible.builtin.template:
+    src: immich-redis.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/immich-redis.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload immich
+  tags: immich
+
+- name: Deploy Immich Postgres Quadlet unit
+  ansible.builtin.template:
+    src: immich-db.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/immich-db.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload immich
+  tags: immich
+
+- name: Deploy Immich environment file (secrets not in unit files)
+  ansible.builtin.template:
+    src: immich.env.j2
+    dest: "{{ immich_config_dir }}/immich.env"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0600"
+  notify: Reload immich
+  tags: immich
+
+- name: Open Immich port on firewall
+  ansible.posix.firewalld:
+    port: "{{ immich_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: immich

@@ -1,0 +1,33 @@
+# ansible/roles/game_servers/templates/forest.container.j2
+# Podman Quadlet — The Forest Dedicated Server (Wine-based)
+# Requires: server binary placed in {{ game_servers_data_base }}/forest/
+# Managed by Ansible
+
+[Unit]
+Description=The Forest Dedicated Server
+After=network-online.target
+
+[Container]
+Image=docker.io/cm2network/steamcmd:latest
+ContainerName=forest
+Network=bevbot_net
+
+Volume={{ game_servers_data_base }}/forest:/home/steam/forest:z
+Volume=/etc/localtime:/etc/localtime:ro
+
+PublishPort={{ forest_port }}:27016/udp
+PublishPort={{ forest_query_port }}:27017/udp
+
+Environment=TZ=America/Denver
+
+# NOTE: The Forest dedicated server requires the Windows binary via SteamCMD + Wine.
+# See docs/game-servers.md for setup instructions before enabling.
+
+NoNewPrivileges=true
+
+[Service]
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target

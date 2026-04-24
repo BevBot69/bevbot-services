@@ -1,0 +1,7 @@
+# ansible/roles/podman/templates/registries.conf.j2
+# Podman registry search order
+unqualified-search-registries = ["docker.io", "ghcr.io", "quay.io"]
+
+[[registry]]
+prefix = "docker.io"
+location = "docker.io"

@@ -1,0 +1,92 @@
+---
+# ansible/roles/nvidia/tasks/main.yml
+# Installs NVIDIA drivers and configures CDI for Podman GPU passthrough.
+# Target: Bevbot 2.0 with RTX PRO 500 Blackwell.
+
+- name: Check if NVIDIA GPU is detected
+  ansible.builtin.command: lspci | grep -i nvidia
+  register: nvidia_detected
+  changed_when: false
+  failed_when: false
+  tags: nvidia
+
+- name: Abort if no NVIDIA GPU found
+  ansible.builtin.fail:
+    msg: "No NVIDIA GPU detected via lspci — skipping driver install."
+  when: nvidia_detected.rc != 0
+  tags: nvidia
+
+# ── Drivers ───────────────────────────────────────────────────────────────────
+# uCore is based on Fedora — use the RPM Fusion repo for NVIDIA drivers
+- name: Install RPM Fusion free and nonfree repos
+  ansible.builtin.dnf:
+    name:
+      - "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+      - "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-{{ ansible_distribution_major_version }}.noarch.rpm"
+    state: present
+    disable_gpg_check: true
+  tags: nvidia
+
+- name: Install NVIDIA driver (akmod — auto-rebuilds on kernel update)
+  ansible.builtin.dnf:
+    name:
+      - "akmod-nvidia-{{ nvidia_driver_version }}xx"
+      - "xorg-x11-drv-nvidia-{{ nvidia_driver_version }}xx"
+      - "xorg-x11-drv-nvidia-{{ nvidia_driver_version }}xx-cuda"
+    state: present
+  register: nvidia_driver_install
+  tags: nvidia
+
+- name: Wait for akmod to build kernel module (can take several minutes)
+  ansible.builtin.command: akmods --force
+  when: nvidia_driver_install.changed
+  async: 600
+  poll: 30
+  tags: nvidia
+
+# ── NVIDIA Container Toolkit / CDI ───────────────────────────────────────────
+- name: Add NVIDIA container toolkit repo
+  ansible.builtin.shell: |
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo \
+      -o /etc/yum.repos.d/nvidia-container-toolkit.repo
+  args:
+    creates: /etc/yum.repos.d/nvidia-container-toolkit.repo
+  tags: nvidia
+
+- name: Install NVIDIA Container Toolkit
+  ansible.builtin.dnf:
+    name: nvidia-container-toolkit
+    state: present
+  tags: nvidia
+
+- name: Generate CDI specification for Podman
+  ansible.builtin.command: nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml
+  args:
+    creates: /etc/cdi/nvidia.yaml
+  tags: nvidia
+
+- name: Configure nvidia-ctk for Podman (rootless)
+  ansible.builtin.command: nvidia-ctk runtime configure --runtime=crun --config=/etc/nvidia-container-runtime/config.toml
+  changed_when: false
+  tags: nvidia
+
+- name: Verify CDI configuration
+  ansible.builtin.command: nvidia-ctk cdi list
+  register: cdi_list
+  changed_when: false
+  tags: nvidia
+
+- name: Show CDI devices
+  ansible.builtin.debug:
+    msg: "Available CDI GPU devices: {{ cdi_list.stdout_lines }}"
+  tags: nvidia
+
+- name: Note — reboot may be required for driver to load
+  ansible.builtin.debug:
+    msg: |
+      NVIDIA driver installed. If this was a fresh install, a reboot is required
+      before GPU passthrough will work in containers. Run:
+        sudo reboot
+      Then verify with: nvidia-smi
+  when: nvidia_driver_install.changed
+  tags: nvidia

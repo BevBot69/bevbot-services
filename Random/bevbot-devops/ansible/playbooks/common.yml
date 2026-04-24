@@ -1,0 +1,22 @@
+---
+# ansible/playbooks/common.yml
+# Roles applied to ALL Bevbot hosts.
+
+- name: Common base setup
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: base
+      tags: base
+    - role: ssh
+      tags: ssh
+    - role: tailscale
+      tags: tailscale
+    - role: podman
+      tags: podman
+    - role: cockpit
+      tags: cockpit
+    - role: portainer
+      tags: portainer

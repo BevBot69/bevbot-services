@@ -1,0 +1,49 @@
+---
+# ansible/roles/smb_client/tasks/main.yml
+# Mounts Bevbot 1.0's RAID NAS share on Bevbot 2.0 for Jellyfin media access.
+
+- name: Ensure cifs-utils is installed
+  ansible.builtin.package:
+    name: cifs-utils
+    state: present
+  tags: smb
+
+- name: Create mount point for Bevbot media share
+  ansible.builtin.file:
+    path: "{{ jellyfin_media_mount }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0755"
+  tags: smb
+
+- name: Create SMB credentials file (secrets not in fstab)
+  ansible.builtin.template:
+    src: smb_credentials.j2
+    dest: /etc/smb_bevbot_credentials
+    owner: root
+    group: root
+    mode: "0600"
+  tags: smb
+
+- name: Add SMB mount to fstab (persistent across reboots)
+  ansible.builtin.lineinfile:
+    path: /etc/fstab
+    line: >-
+      //{{ smb_server }}/{{ smb_share }}
+      {{ jellyfin_media_mount }}
+      cifs
+      credentials=/etc/smb_bevbot_credentials,uid={{ podman_user }},gid={{ podman_user }},iocharset=utf8,vers=3.0,nofail,_netdev,x-systemd.automount,x-systemd.mount-timeout=30
+      0 0
+    regexp: "^//{{ smb_server }}/{{ smb_share }}"
+    state: present
+  notify: Reload systemd and remount
+  tags: smb
+
+- name: Immediately mount the share (don't wait for reboot)
+  ansible.builtin.command: mount {{ jellyfin_media_mount }}
+  args:
+    warn: false
+  failed_when: false  # OK if already mounted
+  changed_when: false
+  tags: smb

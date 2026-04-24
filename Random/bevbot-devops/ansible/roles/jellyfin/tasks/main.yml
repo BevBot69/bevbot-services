@@ -1,0 +1,54 @@
+---
+# ansible/roles/jellyfin/tasks/main.yml
+# Deploys Jellyfin as a rootless Podman container via Quadlet.
+# Config stored locally; media served over SMB from Bevbot 1.0.
+
+- name: Create Jellyfin config and cache directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0750"
+  loop:
+    - "{{ jellyfin_config_dir }}"
+    - "{{ jellyfin_cache_dir }}"
+  tags: jellyfin
+
+- name: Deploy Jellyfin Quadlet container unit
+  ansible.builtin.template:
+    src: jellyfin.container.j2
+    dest: "/home/{{ podman_user }}/.config/containers/systemd/jellyfin.container"
+    owner: "{{ podman_user }}"
+    group: "{{ podman_user }}"
+    mode: "0644"
+  notify: Reload and restart jellyfin
+  tags: jellyfin
+
+- name: Open Jellyfin HTTP port in firewall
+  ansible.posix.firewalld:
+    port: "{{ jellyfin_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: jellyfin
+
+- name: Open Jellyfin HTTPS port in firewall
+  ansible.posix.firewalld:
+    port: "{{ jellyfin_https_port }}/tcp"
+    permanent: true
+    state: enabled
+    immediate: true
+  tags: jellyfin
+
+# Jellyfin DLNA / discovery ports (optional — LAN only)
+- name: Open Jellyfin DLNA discovery ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  loop:
+    - "1900/udp"    # DLNA/UPnP
+    - "7359/udp"    # Jellyfin auto-discovery
+  tags: [jellyfin, dlna]

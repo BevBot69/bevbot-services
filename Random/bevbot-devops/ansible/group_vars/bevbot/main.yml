@@ -1,0 +1,18 @@
+---
+# ansible/group_vars/bevbot/main.yml
+# Variables specific to Bevbot 1.0 (NAS/Primary)
+
+# ── NAS / SMB ─────────────────────────────────────────────────────────────────
+nas_raid_mount: "/mnt/nasraid"
+smb_share_name: "nasraid"
+smb_workgroup: "WORKGROUP"
+smb_valid_users:
+  - "{{ ansible_user }}"
+
+# ── Immich ────────────────────────────────────────────────────────────────────
+immich_version: "release"
+immich_data_dir: "{{ nas_raid_mount }}/immich"
+immich_config_dir: "{{ container_config_base }}/immich"
+immich_db_password: "{{ vault_immich_db_password }}"
+immich_jwt_secret: "{{ vault_immich_jwt_secret }}"
+immich_port: 2283

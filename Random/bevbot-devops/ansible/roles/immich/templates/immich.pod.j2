@@ -1,0 +1,10 @@
+# ansible/roles/immich/templates/immich.pod.j2
+# Podman Quadlet Pod — groups all Immich containers
+[Unit]
+Description=Immich Pod
+
+[Pod]
+PodName=immich
+
+[Install]
+WantedBy=default.target

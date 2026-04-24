@@ -1,0 +1,10 @@
+---
+# ansible/roles/ollama/handlers/main.yml
+- name: Reload and restart ollama
+  ansible.builtin.systemd:
+    name: ollama.service
+    state: restarted
+    daemon_reload: true
+    scope: user
+  become: true
+  become_user: "{{ podman_user }}"

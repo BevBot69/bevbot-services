@@ -1,0 +1,43 @@
+# Bevbot DevOps .gitignore
+
+# ── NEVER COMMIT THESE ────────────────────────────────────────────────────────
+
+# Ansible vault (contains real secrets)
+ansible/group_vars/all/vault.yml
+
+# Real inventory (contains your IPs and hostnames)
+ansible/inventory/hosts.yml
+
+# SSH private keys (should never leave your device anyway)
+*.pem
+*.key
+id_rsa
+id_ed25519
+id_ecdsa
+*_ed25519
+*_rsa
+!*.pub         # Public keys are fine to commit
+
+# ── Safe to Ignore ────────────────────────────────────────────────────────────
+
+# Ansible retry files
+*.retry
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ansible cache
+.ansible/

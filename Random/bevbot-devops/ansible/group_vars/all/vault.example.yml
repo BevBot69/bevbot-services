@@ -1,0 +1,22 @@
+---
+# ansible/group_vars/all/vault.example.yml
+# Copy to vault.yml, fill in real values, then encrypt:
+#   ansible-vault encrypt ansible/group_vars/all/vault.yml
+# Edit later with:
+#   ansible-vault edit ansible/group_vars/all/vault.yml
+
+vault_tailscale_authkey: "tskey-auth-CHANGE_ME"
+
+# Immich (Bevbot 1.0)
+vault_immich_db_password: "CHANGE_ME_strong_password"
+vault_immich_jwt_secret: "CHANGE_ME_64char_random_string"
+
+# Portainer admin bootstrap password (only used on first launch)
+vault_portainer_admin_password: "CHANGE_ME_strong_password"
+
+# SMB credentials for Bevbot 2.0 → Bevbot 1.0 mount
+vault_smb_username: "your_smb_user"
+vault_smb_password: "CHANGE_ME"
+
+# Game server RCON passwords (optional)
+vault_minecraft_rcon_password: "CHANGE_ME"

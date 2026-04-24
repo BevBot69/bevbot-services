@@ -1,0 +1,50 @@
+# ansible/roles/jellyfin/templates/jellyfin.container.j2
+# Podman Quadlet — Jellyfin Media Server
+# Config: local SSD  |  Media: SMB mount from Bevbot 1.0 NAS
+# Managed by Ansible — do not edit manually.
+
+[Unit]
+Description=Jellyfin Media Server
+After=network-online.target mnt-bevbot_media.mount
+# Wait for the SMB mount before starting Jellyfin
+Requires=mnt-bevbot_media.mount
+
+[Container]
+Image=docker.io/jellyfin/jellyfin:latest
+ContainerName=jellyfin
+Network=bevbot_net
+
+# Config and cache stay on local NVMe — fast and persistent
+Volume={{ jellyfin_config_dir }}:/config:z
+Volume={{ jellyfin_cache_dir }}:/cache:z
+
+# Media is served from Bevbot 1.0 over SMB
+Volume={{ jellyfin_media_mount }}:/media:ro,z
+
+# Timezone
+Volume=/etc/localtime:/etc/localtime:ro
+Environment=TZ=America/Denver
+
+# Ports
+PublishPort={{ jellyfin_port }}:8096
+PublishPort={{ jellyfin_https_port }}:8920
+PublishPort=1900:1900/udp
+PublishPort=7359:7359/udp
+
+# NVIDIA GPU passthrough via CDI (Blackwell RTX PRO 500)
+# Comment out if you want CPU-only transcoding
+AddDevice=nvidia.com/gpu=all
+
+# Security options
+SecurityLabelDisable=false
+NoNewPrivileges=true
+
+Label=io.containers.autoupdate=registry
+
+[Service]
+Restart=always
+RestartSec=15
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,13 @@
+---
+# ansible/playbooks/site.yml
+# Master playbook — runs all roles on all hosts.
+# Use --limit or individual playbooks to target a specific host.
+
+- name: Apply base configuration to all hosts
+  import_playbook: common.yml
+
+- name: Configure Bevbot 1.0 (NAS / Primary)
+  import_playbook: bevbot.yml
+
+- name: Configure Bevbot 2.0 (Compute / Media)
+  import_playbook: bevbot2.yml

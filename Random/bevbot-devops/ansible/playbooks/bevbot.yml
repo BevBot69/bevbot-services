@@ -1,0 +1,53 @@
+---
+# ansible/playbooks/bevbot.yml
+# Services specific to Bevbot 1.0 (Dell XPS Tower — NAS / Primary)
+#
+# Usage:
+#   Full deploy:   ansible-playbook playbooks/bevbot.yml --ask-vault-pass
+#   Immich only:   ansible-playbook playbooks/bevbot.yml --tags immich --ask-vault-pass
+
+- name: Configure Bevbot 1.0 — NAS and Primary Services
+  hosts: bevbot
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Verify RAID NAS mount point exists
+      ansible.builtin.stat:
+        path: "{{ nas_raid_mount }}"
+      register: nas_mount
+      tags: always
+
+    - name: Warn if NAS mount is not mounted
+      ansible.builtin.debug:
+        msg: |
+          WARNING: {{ nas_raid_mount }} does not appear to be mounted.
+          Immich data directory will be created there — ensure your RAID5
+          volume is mounted before running the immich tag.
+      when: not nas_mount.stat.exists
+      tags: always
+
+  roles:
+    - role: immich
+      tags: immich
+
+  post_tasks:
+    - name: Print Bevbot 1.0 service summary
+      ansible.builtin.debug:
+        msg: |
+          ════════════════════════════════════════
+          Bevbot 1.0 — Deployment Complete
+          ════════════════════════════════════════
+          Cockpit:   https://{{ ansible_host }}:9090
+          Portainer: https://{{ ansible_host }}:9443
+          Immich:    http://{{ ansible_host }}:{{ immich_port }}
+
+          Tailscale SSH: ssh {{ ansible_user }}@{{ inventory_hostname }}
+          Standard SSH:  ssh -i ~/.ssh/bevbot_ed25519 {{ ansible_user }}@{{ ansible_host }}
+
+          Next steps:
+            1. Open Portainer and set admin password
+            2. Open Immich and create your admin account
+            3. Configure SMB share in Cockpit → Storage
+          ════════════════════════════════════════
+      tags: always
